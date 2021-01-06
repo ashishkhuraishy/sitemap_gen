@@ -1,7 +1,6 @@
 package htmlparser
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -22,36 +21,30 @@ type Link struct {
 // and parse it to return all
 // the links available on the
 // html page
-func Parse(url string) {
+func Parse(url string) []*Link {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err.Error())
-		return
+		return nil
 	}
 	defer resp.Body.Close()
 
 	html, err := html.Parse(resp.Body)
 	if err != nil {
 		log.Fatal(err.Error())
-		return
+		return nil
 	}
 
 	nodes := linkNodes(html)
 
-	if last := len(url) - 1; last >= 0 && url[last] == '/' {
-		url = url[:last]
-		fmt.Println(url)
-	}
+	url = strings.TrimRight(url, "/")
 
-	var links []Link
+	var links []*Link
 	for _, n := range nodes {
 		links = append(links, getLink(n, url))
 	}
 
-	for _, v := range links {
-		fmt.Println(v.URL)
-	}
-
+	return links
 }
 
 // linkNodes will recursively loop through all the
@@ -72,7 +65,7 @@ func linkNodes(node *html.Node) []*html.Node {
 
 // getLink fn will take a node and
 // convert it into struct of link
-func getLink(node *html.Node, url string) Link {
+func getLink(node *html.Node, url string) *Link {
 	var link Link
 
 	link.Text = getText(node)
@@ -80,15 +73,15 @@ func getLink(node *html.Node, url string) Link {
 		if n.Key == "href" && len(n.Val) > 0 {
 			// fmt.Println(n.Val)
 			link.URL = n.Val
-			if n.Val[0] == '/' || n.Val[0] == '#' {
+			if n.Val[0] == '/' || n.Val[0] == '#' || n.Val[0] == '?' {
 				link.URL = url + n.Val
 			}
 
-			return link
+			return &link
 		}
 	}
 
-	return link
+	return &link
 }
 
 // GetText will loop through all the elemnts
@@ -105,10 +98,14 @@ func getText(node *html.Node) string {
 
 	var text string
 	for i := node.FirstChild; i != nil; i = i.NextSibling {
-		text += strings.TrimSpace(getText(i)) + " "
+		text += getText(i)
 	}
 
-	// text = strings.Join(strings.Fields(text), " ")
+	// converting the text into []string without space
+	// then joining each other with one white-space in
+	// between. (HTML pages can have uneven whitespaces
+	// which can become messy sometimes)
+	text = strings.Join(strings.Fields(text), " ")
 
 	return text
 }

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"io"
-	"log"
-	"net/http"
+	"fmt"
 
 	"github.com/ashishkhuraishy/sitemap_gen/htmlparser"
 )
@@ -11,15 +9,9 @@ import (
 func main() {
 	url := "https://pkg.go.dev/golang.org/x/net/html/"
 
-	htmlparser.Parse(url)
-}
+	links := htmlparser.Parse(url)
 
-func getHTML(url string) io.Reader {
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Fatal(err.Error())
-		return nil
+	for _, v := range links {
+		fmt.Println(v)
 	}
-
-	return resp.Body
 }
