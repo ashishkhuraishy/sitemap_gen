@@ -17,11 +17,11 @@ type Link struct {
 	Text string
 }
 
-// Parse will take in a url
+// ParseURL will take in a url
 // and parse it to return all
 // the links available on the
 // html page
-func Parse(url string) []*Link {
+func ParseURL(baseURL, url string) []*Link {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -40,8 +40,8 @@ func Parse(url string) []*Link {
 	url = strings.TrimRight(url, "/")
 
 	var links []*Link
-	for _, n := range nodes {
-		links = append(links, getLink(n, url))
+	for _, node := range nodes {
+		links = append(links, getLink(node, baseURL, url))
 	}
 
 	return links
@@ -65,7 +65,7 @@ func linkNodes(node *html.Node) []*html.Node {
 
 // getLink fn will take a node and
 // convert it into struct of link
-func getLink(node *html.Node, url string) *Link {
+func getLink(node *html.Node, baseURL, url string) *Link {
 	var link Link
 
 	link.Text = getText(node)
@@ -74,7 +74,7 @@ func getLink(node *html.Node, url string) *Link {
 			// fmt.Println(n.Val)
 			link.URL = n.Val
 			if n.Val[0] == '/' || n.Val[0] == '#' || n.Val[0] == '?' {
-				link.URL = url + n.Val
+				link.URL = baseURL + n.Val
 			}
 
 			return &link
