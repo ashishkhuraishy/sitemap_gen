@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 )
 
 // SiteMap is a struct which stores all
@@ -16,12 +18,23 @@ type SiteMap struct {
 	Pages       map[string][]*Link
 }
 
-var queue map[string]bool
-var pages map[string][]*Link
+// Page is a struct used to store the details
+// of an individual page of a website
+type Page struct {
+	URL    string
+	Links  []Link
+	Broken bool
+}
+
+var queue, broken map[string]bool
+var pages map[string][]Link
+
+var mu sync.Mutex
 
 func init() {
 	queue = make(map[string]bool)
-	pages = make(map[string][]*Link)
+	broken = make(map[string]bool)
+	pages = make(map[string][]Link)
 }
 
 // GenerateSiteMap will take in a url and
@@ -37,24 +50,34 @@ func GenerateSiteMap(url string) {
 
 	fmt.Println("Base URL :", baseURL)
 
-	recurParse(baseURL, url)
+	jobs := make(chan string, 100)
+	// results := make(chan Page)
+	done := make(chan string, 100)
 
-	sitemap := SiteMap{
-		Domain:      baseURL,
-		PageCount:   len(pages),
-		BrokenLinks: 0,
-		Pages:       pages,
-	}
+	go worker(baseURL, jobs, done)
+	// go worker(baseURL, jobs, done)
+	// go worker(baseURL, jobs, done)
+	// go worker(baseURL, jobs, done)
 
-	fmt.Println(sitemap.Domain, sitemap.PageCount)
+	jobs <- url
 
-	for page, links := range pages {
-		fmt.Println(page)
-		for _, link := range links {
-			fmt.Println("\t", link)
-		}
-	}
+	time.Sleep(5 * time.Second)
+	assignjobs(done, jobs)
+
+	wg.Wait()
+	fmt.Println(len(pages), len(broken))
 }
+
+// func worker(baseURL string, jobs chan string, data chan Page) {
+// 	for job := range jobs {
+// 		// print("adding to que")
+// 		addToQueue(job)
+// 		// print("added to que")
+// 		data <- ParseURL(baseURL, job)
+// 		fmt.Println("Done :", job)
+// 	}
+
+// }
 
 // GetBaseURL will return the base-url of
 // the given url
@@ -69,33 +92,44 @@ func getBaseURL(url string) (string, error) {
 	return baseURL, nil
 }
 
-func recurParse(baseURL, url string) {
-	links := ParseURL(baseURL, url)
-	pages[url] = links
+// func recurParse(baseURL, url string) {
+// 	links := ParseURL(baseURL, url)
+// 	pages[url] = links
 
-	// fmt.Printf("Links : %d\tPages : %d\tURL : %s\n", len(links), len(pages), url)
-	for _, v := range links {
-		// fmt.Println(v.URL)
-		cleanedURL := cleanURL(v.URL)
+// 	// fmt.Printf("Links : %d\tPages : %d\tURL : %s\n", len(links), len(pages), url)
+// 	for _, v := range links {
+// 		// fmt.Println(v.URL)
+// 		cleanedURL := cleanURL(v.URL)
 
-		if strings.Contains(cleanedURL, baseURL) && pages[cleanedURL] == nil {
-			recurParse(baseURL, cleanedURL)
-			// addToQueue(baseURL, cleanedURL)
-		}
-	}
+// 		if strings.Contains(cleanedURL, baseURL) && pages[cleanedURL] == nil {
+// 			recurParse(baseURL, cleanedURL)
+// 			// addToQueue(baseURL, cleanedURL)
+// 		}
+// 	}
+// }
+
+func addToBroken(page Page) {
+	mu.Lock()
+
+	page.URL = strings.TrimRight(page.URL, "/")
+
+	// Add page to the map of broken
+	// and remove it from the queue
+	broken[page.URL] = true
+	delete(queue, page.URL)
+
+	mu.Unlock()
 }
 
 // AddToQueue will add a url to the
 // existing queue
-func addToQueue(baseURL, url string) {
-	if queue[url] {
-		return
-	}
-	fmt.Printf("Queue %d\tURL : %s\n", len(queue), url)
+func addToQueue(url string) {
+	mu.Lock()
 
+	url = strings.TrimRight(url, "/")
 	queue[url] = true
-	recurParse(baseURL, url)
-	delete(queue, url)
+
+	mu.Unlock()
 }
 
 // CleanURL will trim and clean the url to just

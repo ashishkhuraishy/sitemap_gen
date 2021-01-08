@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -21,30 +22,45 @@ type Link struct {
 // and parse it to return all
 // the links available on the
 // html page
-func ParseURL(baseURL, url string) []*Link {
+func ParseURL(baseURL, url string) Page {
+	url = strings.TrimRight(url, "/")
+	// fmt.Println("Running", url)
+	page := Page{
+		URL: url,
+	}
+
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err.Error())
-		return nil
+		if strings.Contains(err.Error(), "too many open") {
+			time.Sleep(2 * time.Second)
+			return ParseURL(baseURL, url)
+		}
+		log.Println(err.Error())
+		// errchan <- page
+		page.Broken = true
+		return page
 	}
 	defer resp.Body.Close()
 
 	html, err := html.Parse(resp.Body)
 	if err != nil {
-		log.Fatal(err.Error())
-		return nil
+		log.Println(err.Error())
+		// errchan <- page
+		page.Broken = true
+		return page
 	}
 
 	nodes := linkNodes(html)
 
-	url = strings.TrimRight(url, "/")
-
-	var links []*Link
+	var links []Link
 	for _, node := range nodes {
 		links = append(links, getLink(node, baseURL, url))
 	}
 
-	return links
+	// page.URL = url
+	page.Links = links
+
+	return page
 }
 
 // linkNodes will recursively loop through all the
@@ -65,7 +81,7 @@ func linkNodes(node *html.Node) []*html.Node {
 
 // getLink fn will take a node and
 // convert it into struct of link
-func getLink(node *html.Node, baseURL, url string) *Link {
+func getLink(node *html.Node, baseURL, url string) Link {
 	var link Link
 
 	link.Text = getText(node)
@@ -77,11 +93,11 @@ func getLink(node *html.Node, baseURL, url string) *Link {
 				link.URL = baseURL + n.Val
 			}
 
-			return &link
+			return link
 		}
 	}
 
-	return &link
+	return link
 }
 
 // GetText will loop through all the elemnts
