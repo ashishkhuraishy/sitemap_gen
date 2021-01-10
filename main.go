@@ -11,6 +11,8 @@ import (
 
 var wg, jwg sync.WaitGroup
 
+var mp sync.Map
+
 func main() {
 	// url := "https://pkg.go.dev/golang.org/x/net/html/"
 	url := "https://go.dev/"
