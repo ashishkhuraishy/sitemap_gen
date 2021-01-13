@@ -31,8 +31,8 @@ func ParseURL(baseURL, url string) Page {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		if strings.Contains(err.Error(), "too many open") {
-			time.Sleep(2 * time.Second)
+		if strings.Contains(err.Error(), "too many open files") {
+			time.Sleep(1 * time.Second)
 			return ParseURL(baseURL, url)
 		}
 		log.Println(err.Error())
@@ -41,6 +41,11 @@ func ParseURL(baseURL, url string) Page {
 		return page
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		page.Broken = true
+		return page
+	}
 
 	html, err := html.Parse(resp.Body)
 	if err != nil {

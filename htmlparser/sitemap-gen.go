@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 )
 
 // SiteMap is a struct which stores all
@@ -50,14 +49,9 @@ func GenerateSiteMap(url string) {
 
 	fmt.Println("Base URL :", baseURL)
 
-	jobs := make(chan string, 100)
-	// done := make(chan string, 100)
+	c := NewCrawler(baseURL, cleanURL(url))
 
-	jobs <- url
-
-	time.Sleep(5 * time.Second)
-
-	fmt.Println(len(pages), len(broken))
+	fmt.Println(len(c.visited), len(broken))
 }
 
 // GetBaseURL will return the base-url of
@@ -114,6 +108,8 @@ func cleanURL(url string) string {
 		indx := strings.Index(cleanedURL, "?")
 		cleanedURL = cleanedURL[:indx]
 	}
+
+	cleanedURL = strings.TrimRight(cleanedURL, "/")
 
 	return cleanedURL
 }
